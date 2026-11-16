@@ -1,0 +1,41 @@
+name: API Sentinel isolated test run
+run-name: "API Sentinel Run #${{ inputs.sentinelRunId }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      sentinelRunId:
+        description: API Sentinel run identifier
+        required: true
+        type: string
+      commitSha:
+        description: Exact analyzed commit to test
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.commitSha }}
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm ci --ignore-scripts=false
+      - name: Run full Jest suite
+        id: jest
+        continue-on-error: true
+        run: npx --no-install jest --runInBand --json --outputFile=api-sentinel-results.json
+      - name: Report assertion failures
+        if: steps.jest.outcome == 'failure'
+        run: exit 1
